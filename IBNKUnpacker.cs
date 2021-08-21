@@ -105,6 +105,49 @@ namespace ibnktool
 
                 }
             }
+            //--------- Percussion
+
+            for (int i = 0; i < newIBNK.instruments.Length; i++)
+            {
+                if (newIBNK.instruments[i] != null)
+                {               
+                    if (newIBNK.instruments[i].Percussion)
+                    {
+                        var wb = (JPercussion)(newIBNK.instruments[i]);
+                        if (wb == null)
+                            continue;
+                        for (int xx = 0; xx < wb.Sounds.Length; xx++) {
+                            if (wb.Sounds[xx] == null)
+                                continue;
+                            util.padTo(output, 32);
+                            wb.Sounds[xx].mBaseAddress = (int)output.BaseStream.Position;
+                            wb.Sounds[xx].WriteToStream(output);
+                        }
+                    }
+                }
+            }
+
+            util.padTo(output, 32);
+
+            output.Flush();
+
+
+            for (int i = 0; i < newIBNK.instruments.Length; i++)
+            {
+                if (newIBNK.instruments[i] != null)
+                {
+                    util.padTo(output, 32);
+
+                    if (newIBNK.instruments[i].Percussion)
+                    {
+                        newIBNK.instruments[i].mBaseAddress = (int)output.BaseStream.Position;
+                        ((JPercussion)newIBNK.instruments[i]).WriteToStream(output);
+                  
+                    }                    
+                }
+            }
+
+
             util.padTo(output, 32); // final padding
             newIBNK.size = (uint)output.BaseStream.Length;
 

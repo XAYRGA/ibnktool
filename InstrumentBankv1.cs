@@ -340,14 +340,33 @@ namespace ibnktool
         private void loadFromStream(BeBinaryReader reader, int seekbase)
         {
             Percussion = true;
-            reader.ReadBytes(0x84);
+            reader.ReadBytes(0x84); // Padding. 
             var keyRegPtrs = util.readInt32Array(reader, 100);
+            var anchor = reader.BaseStream.Position; // Store anchor at end of pointer table at base + 0x218
             for (int i=0; i < 100; i++)
                 if (keyRegPtrs[i]!=0)
                 {
                     reader.BaseStream.Position = keyRegPtrs[i] + seekbase;
                     Sounds[i] = JPercussionEntry.CreateFromStream(reader, seekbase);
                 }
+            reader.BaseStream.Position = anchor;  // Restore anchor. 
+
+            reader.ReadBytes(0x70); // Padding 
+            for (int i = 0; i < 100; i++)
+            {
+                var b = reader.ReadByte();
+                if (keyRegPtrs[i] != 0)
+                    Sounds[i].uflag1 = b;
+            }
+            reader.ReadBytes(0x1c); // Also padding
+            for (int i = 0; i < 100; i++)
+            {
+                var b = reader.ReadUInt16();
+                if (keyRegPtrs[i] != 0)
+                    Sounds[i].uflag2 = b;
+            }
+            // 0x50 padding.
+            reader.ReadBytes(0x50);
         }
 
         new public static JPercussion CreateFromStream(BeBinaryReader reader, int seekbase)
@@ -356,14 +375,35 @@ namespace ibnktool
             b.loadFromStream(reader, seekbase);
             return b;
         }
+
+        public void WriteToStream(BeBinaryWriter wr)
+        {
+            wr.Write(PER2);
+            wr.Write(new byte[0x84]);
+            for (int i = 0; i < 100; i++)
+                wr.Write(Sounds[i] != null ? Sounds[i].mBaseAddress : 0);
+            wr.Write(new byte[0x70]);
+            for (int i = 0; i < 100; i++)
+                wr.Write((byte)(Sounds[i] != null ? Sounds[i].uflag1 : 0));
+            wr.Write(new byte[0x1C]);
+            for (int i = 0; i < 100; i++)
+                wr.Write((short)(Sounds[i] != null ? Sounds[i].uflag2 : 0));
+            wr.Write(new byte[0x50]);
+        }
     }
 
 
     public class JPercussionEntry 
     {
+        [JsonIgnore]
+        public int mBaseAddress = 0;
+
         public JVelocityRegionv1[] Velocities;
         public float Pitch;
         public float Volume;
+        public byte uflag1;
+        public ushort uflag2;
+
 
         private void loadFromStream(BeBinaryReader reader, int seekbase)
         {
@@ -386,6 +426,15 @@ namespace ibnktool
             var b = new JPercussionEntry();
             b.loadFromStream(reader, seekbase);
             return b;
+        }
+        public void WriteToStream(BeBinaryWriter wr)
+        {
+            wr.Write(Pitch);
+            wr.Write(Volume);
+            wr.Write(0L);
+            wr.Write(Velocities.Length);
+            for (int i = 0; i < Velocities.Length; i++)
+                wr.Write(Velocities[i].mBaseAddress);
         }
     }
 

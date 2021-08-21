@@ -16,10 +16,23 @@ namespace ibnktool
         static void Main(string[] args)
         {
             crc32.reset();
+
+
+#if DEBUG
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            Console.WriteLine("!IBNKTOOL build in debug mode, do not push into release!");
+            Console.WriteLine("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            Console.WriteLine("dump email: bugs@xayr.ga");
+            Console.ForegroundColor = ConsoleColor.Gray;
+#endif
+
             cmdarg.cmdargs = args;
 
             var operation = cmdarg.assertArg(0, "Operation");
             var version = cmdarg.assertArg(1, "Version");
+
+            util.consoleProgress_quiet = cmdarg.findDynamicFlagArgument("-quiet");
 
             if (operation=="unpack")
             {
@@ -30,9 +43,14 @@ namespace ibnktool
                 var mr = new BeBinaryReader(fh);
                 JInstrumentBankv1 bank = null;
                 try {bank = JInstrumentBankv1.CreateFromStream(mr);}
-                catch (Exception E){cmdarg.assert($"Cannot deserialize IBNK\n\n{E.Message}");}
+                catch (Exception E){
+#if DEBUG
+                    Console.WriteLine(E.ToString());
+#endif
+                    cmdarg.assert($"Cannot deserialize IBNK\n\n{E.Message}");
+                }
 
-                var unp = new IBNKUnpacker();
+                    var unp = new IBNKUnpacker();
                 unp.unpackV1(output, bank);              
             } else if ( operation=="pack")
             {
@@ -49,6 +67,9 @@ namespace ibnktool
                 } catch (Exception E)
                 {
                     cmdarg.assert($"Cannot deserialize project\n\n{E.Message}");
+#if DEBUG 
+                    Console.WriteLine(E.ToString());
+#endif
                 }
 
                 var pck = new BeBinaryWriter(File.OpenWrite(output));

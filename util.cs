@@ -9,8 +9,11 @@ namespace ibnktool
 {
     public static class util
     {
+        public static bool consoleProgress_quiet = false;
         public static void consoleProgress(string txt, int progress, int max, bool show_progress = false)
         {
+            if (consoleProgress_quiet)
+                return;
             var flt_total = (float)progress / max;
             Console.CursorLeft = 0;
             //Console.WriteLine(flt_total);
