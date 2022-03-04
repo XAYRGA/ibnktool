@@ -180,9 +180,9 @@ namespace ibnktool
         private void loadFromStream(BeBinaryReader reader)
         {
             Target = reader.ReadByte();
+            reader.ReadBytes(3);
             Register = reader.ReadByte();
             Key = reader.ReadByte();
-            reader.ReadBytes(1);
             Floor = reader.ReadSingle();
             Ceiling = reader.ReadSingle();
         }
@@ -349,7 +349,7 @@ namespace ibnktool
                     reader.BaseStream.Position = keyRegPtrs[i] + seekbase;
                     Sounds[i] = JPercussionEntry.CreateFromStream(reader, seekbase);
                 }
-            reader.BaseStream.Position = anchor;  // Restore anchor, JPercussionEntry.CreateFromStream destroyed our position
+            reader.BaseStream.Position = anchor;  // Restore anchor. 
 
             reader.ReadBytes(0x70); // Padding 
             for (int i = 0; i < 100; i++)

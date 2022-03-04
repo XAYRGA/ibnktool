@@ -27,13 +27,6 @@ namespace ibnktool
             Console.ForegroundColor = ConsoleColor.Gray;
 #endif
 
-            var bb = File.OpenRead("53.bnk");
-            var bw = new BeBinaryReader(bb);
-            var w = InstrumentBankv2.CreateFromStream(bw);
-
-
-            if (true)
-                return;
             cmdarg.cmdargs = args;
 
             var operation = cmdarg.assertArg(0, "Operation");
