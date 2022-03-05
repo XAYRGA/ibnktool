@@ -29,8 +29,20 @@ namespace ibnktool
 
             var bb = File.OpenRead("53.bnk");
             var bw = new BeBinaryReader(bb);
+            Console.WriteLine("Reading 53.bnk");
+            Console.WriteLine("InstrumentBankV2 --> CreateFromStream()");
             var w = InstrumentBankv2.CreateFromStream(bw);
-
+            Console.WriteLine($"Oscillators \t{w.Oscillators.Length}");
+            Console.WriteLine($"Sensors \t{w.SenseEffects.Length}");
+            Console.WriteLine($"RandEffs \t{w.RandEffects.Length}");
+            Console.WriteLine($"Instruments \t{w.Instruments.Length}");
+            Console.WriteLine($"PercRegions \t{w.PercussionMaps.Length}");
+            Console.WriteLine($"Percussions \t{w.Percussions.Length}");
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Read successful.");
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.ReadLine();
+            File.WriteAllText("test_ibnk.json", JsonConvert.SerializeObject(w, Formatting.Indented));
 
             if (true)
                 return;
