@@ -56,6 +56,7 @@
     <Compile Include="beio\Reinterpret.cs" />
     <Compile Include="cmdarg.cs" />
     <Compile Include="crc.cs" />
+    <Compile Include="ibnkv2_packunpack.cs" />
     <Compile Include="ibnkv1_packunpack.cs" />
     <Compile Include="InstrumentBankv1.cs" />
     <Compile Include="InstrumentBankv2.cs" />

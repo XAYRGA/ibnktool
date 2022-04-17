@@ -15,17 +15,15 @@ namespace ibnktool
 
 
         private const int PERC = 0x50455243; // Percussion Table
-        private const int Perc = 0x50657263; // Percussion 
         private const int SENS = 0x53454E53; // Sensor effect
         private const int RAND = 0x52414E44; // Random Effect
-        private const int OSCT = 0x4F534354; // OSCillator Table
+        private const int OSCT = 0x4F534354; // Oscillator Table
         private const int INST = 0x494E5354; // INStrument Table
         private const int IBNK = 0x49424E4B; // Instrument BaNK
         private const int ENVT = 0x454E5654; // ENVelope Table
-        private const int PMAP = 0x504D4150;
-        private const int Pmap = 0x506D6170;
-        private const int LIST = 0x4C495354;
-        private const int Inst = 0x496E7374; // Instrument
+        private const int PMAP = 0x504D4150; // Percission Map Table
+        private const int LIST = 0x4C495354; // Instrument / Percussion List
+ 
 
         uint Boundaries = 0;
         private int iBase = 0;
@@ -45,7 +43,8 @@ namespace ibnktool
         public JStandardInstrumentv2[] Instruments = new JStandardInstrumentv2[0];
         public JInstrumentPercussionMapv2[] PercussionMaps = new JInstrumentPercussionMapv2[0];
         public JPercussionInstrumentv2[] Percussions = new JPercussionInstrumentv2[0];
-        
+        public JInstrumentv2[] List = new JInstrumentv2[0];
+
         private Dictionary<int, long> PointerMemory = new Dictionary<int, long>();
 
         private void storeWritebackPointer(BeBinaryWriter write,int id)
@@ -78,9 +77,22 @@ namespace ibnktool
             }
         }
 
+        private int findEnvelopeIndex(int addr)
+        {
+     
+            for (int i=0; i < Envelopes.Length; i ++)
+            {
+                if ((Envelopes[i].mBaseAddress - (EnvTableOffset + 8) ) == addr) // i'm so sorry. 
+                    return i; // like really. 
+            }
+            Console.WriteLine($"!!! BUGGED IBNK !!! OSC INDEX LOOKUP FAIL {addr:X}\r\n==== DO NOT REBUILD ====");
+            return -1;
+        }
+
 
         private void loadFromStream(BeBinaryReader reader)
         {
+            
             if (reader.ReadUInt32() != IBNK)
                 throw new InvalidOperationException("Data is not IBNK");
             var ibnkSize = reader.ReadUInt32();
@@ -107,6 +119,14 @@ namespace ibnktool
             loadInstruments(reader, InsTableOffset);
             loadPmaps(reader, PmapTableOffset);
             loadPercussion(reader, PercTableOffset);
+            loadListMap(reader, ListTableOffset);
+
+            for (int i = 0; i < Oscillators.Length; i++) // Changes the oscillator envelope references from pointers to indices. 
+            {
+                var osc = Oscillators[i];
+                osc.AttackEnvelopeID = findEnvelopeIndex(osc.AttackEnvelopeID);
+                osc.ReleaseEnvelopeID = findEnvelopeIndex(osc.ReleaseEnvelopeID);
+            }
         }
 
         // No safety checks for validity of envelope structure due to lack of titles. Beware! 
@@ -195,9 +215,9 @@ namespace ibnktool
                 Percussions[i] = JPercussionInstrumentv2.CreateFromStream(rd);
         }
 
-        private void loadInstruments(BeBinaryReader rd, int listTableOffset)
+        private void loadInstruments(BeBinaryReader rd, int instTableOffset)
         {
-            rd.BaseStream.Position = listTableOffset;
+            rd.BaseStream.Position = instTableOffset;
             if (rd.ReadInt32() != INST)
                 throw new Exception("Expected INST");
             var size = rd.ReadInt32();
@@ -216,7 +236,7 @@ namespace ibnktool
             rd.BaseStream.Position = sensTableOffset;
 
             if (rd.ReadInt32() != SENS)
-                throw new Exception("Expected RAND");
+                throw new Exception("Expected SENS");
             var size = rd.ReadInt32();
             var count = rd.ReadInt32();
 
@@ -228,6 +248,54 @@ namespace ibnktool
                 SenseEffects[i] = JInstrumentSenseEffectv2.CreateFromStream(rd);
         }
 
+
+        private void loadListMap(BeBinaryReader rd, int listTableOffset)
+        {
+            rd.BaseStream.Position = listTableOffset;
+            if (rd.ReadInt32() != LIST)
+                throw new Exception("Expected LIST");
+            var size = rd.ReadInt32();
+            var count = rd.ReadInt32();
+
+            if (count == 0)
+                return;
+
+            List = new JInstrumentv2[count];
+
+            var listPointers = util.readInt32Array(rd, count);
+
+
+            for (int lp = 0; lp < listPointers.Length; lp++)
+            {
+                var cont = false;
+                var currentListPointer = listPointers[lp];
+
+
+                if (currentListPointer == 0) // There are empty slots in the instrument list... they're 0x00
+                    continue;
+               
+                for (int i = 0; i < Instruments.Length; i++)
+                    if (Instruments[i].mBaseAddress ==currentListPointer)
+                    {
+                        List[lp] = Instruments[i];
+                        cont = true; 
+                        break;
+                    }
+
+                if (cont) // Optimization, if we found it in instruments list we don't need to look through the percussion list. 
+                    continue; 
+
+                for (int i = 0; i < Percussions.Length; i++)
+                    if (Percussions[i].mBaseAddress == currentListPointer)
+                    {
+                        List[lp] = Percussions[i];
+                        break;
+                    }
+            }
+
+        }
+
+
         public static InstrumentBankv2 CreateFromStream(BeBinaryReader reader)
         {
             var b = new InstrumentBankv2();
@@ -236,6 +304,7 @@ namespace ibnktool
         }
         public void WriteToStream(BeBinaryWriter wr)
         {
+           
             wr.Write(IBNK);
             storeWritebackPointer(wr, IBNK);
             wr.Write(id);
@@ -257,22 +326,97 @@ namespace ibnktool
                     util.padTo(wr, 0x04);
                 }
             }
-
+            ///////~ OSCILLATOR
             wr.Write(OSCT);
             {
                 if (Oscillators.Length == 0)
                     wr.Write(0x0000000400000000);
                 else
                 {
-                    storeWritebackPointer(wr, ENVT);
+                    storeWritebackPointer(wr, OSCT);
                     var anchor = wr.BaseStream.Position;
-                    for (int i = 0; i < Envelopes.Length; i++)
-                        Envelopes[i].WriteToStream(wr);
-                    fillWritebackPointer(wr, ENVT, (int)(wr.BaseStream.Position - anchor));
+                    for (int i = 0; i < Oscillators.Length; i++)
+                        Oscillators[i].WriteToStream(wr);
+                    fillWritebackPointer(wr, OSCT, (int)(wr.BaseStream.Position - anchor));
+                    util.padTo(wr, 0x04);
+                }
+            }
+            ///////~ RANDEFFS
+            wr.Write(RAND);
+            {
+                if (RandEffects.Length == 0)
+                    wr.Write(0x0000000400000000);
+                else
+                {
+                    storeWritebackPointer(wr, RAND);
+                    var anchor = wr.BaseStream.Position;
+                    for (int i = 0; i < RandEffects.Length; i++)
+                        RandEffects[i].WriteToStream(wr);
+                    fillWritebackPointer(wr, RAND, (int)(wr.BaseStream.Position - anchor));
                     util.padTo(wr, 0x04);
                 }
             }
 
+            ///////~ SENSEFFS
+            wr.Write(SENS);
+            {
+                if (SenseEffects.Length == 0)
+                    wr.Write(0x0000000400000000);
+                else
+                {
+                    storeWritebackPointer(wr, SENS);
+                    var anchor = wr.BaseStream.Position;
+                    for (int i = 0; i < SenseEffects.Length; i++)
+                        SenseEffects[i].WriteToStream(wr);
+                    fillWritebackPointer(wr, SENS, (int)(wr.BaseStream.Position - anchor));
+                    util.padTo(wr, 0x04);
+                }
+            }
+            ///////~ INSTRUMENTS
+            wr.Write(INST);
+            {
+                if (Instruments.Length == 0)
+                    wr.Write(0x0000000400000000);
+                else
+                {
+                    storeWritebackPointer(wr, INST);
+                    var anchor = wr.BaseStream.Position;
+                    for (int i = 0; i < Instruments.Length; i++)
+                        Instruments[i].WriteToStream(wr);
+                    fillWritebackPointer(wr, INST, (int)(wr.BaseStream.Position - anchor));
+                    util.padTo(wr, 0x04);
+                }
+            }
+            ///////~ PERCUSSIONMAPS
+            wr.Write(PMAP);
+            {
+                if (PercussionMaps.Length == 0)
+                    wr.Write(0x0000000400000000);
+                else
+                {
+                    storeWritebackPointer(wr, PMAP);
+                    var anchor = wr.BaseStream.Position;
+                    for (int i = 0; i < PercussionMaps.Length; i++)
+                        PercussionMaps[i].WriteToStream(wr);
+                    fillWritebackPointer(wr, PMAP, (int)(wr.BaseStream.Position - anchor));
+                    util.padTo(wr, 0x04);
+                }
+            }
+            ///////~ PERCUSSION INSTRUMENTS
+            wr.Write(PERC);
+            {
+                if (Percussions.Length == 0)
+                    wr.Write(0x0000000400000000);
+                else
+                {
+                    storeWritebackPointer(wr, PMAP);
+                    var anchor = wr.BaseStream.Position;
+                    for (int i = 0; i < Percussions.Length; i++)
+                        Percussions[i].WriteToStream(wr);
+                    fillWritebackPointer(wr, PMAP, (int)(wr.BaseStream.Position - anchor));
+                    util.padTo(wr, 0x04);
+                }
+            }
         }
     }
 
@@ -282,6 +426,8 @@ namespace ibnktool
 
         [JsonIgnore]
         public int mBaseAddress = 0;
+        [JsonIgnore]
+        public int mTableOffset = 0;
         [JsonIgnore]
         public uint mHash = 0;
 
@@ -297,6 +443,7 @@ namespace ibnktool
         {
         
             var origPos = reader.BaseStream.Position;
+        
             mBaseAddress = (int)origPos;
             int count = 0;
             while (reader.ReadUInt16() < 0xB)
@@ -304,8 +451,7 @@ namespace ibnktool
                 reader.ReadUInt32();
                 count++;
             }
-
-
+            // We need to account for the last vector in the array, so increment count + 1
             count++;
             reader.BaseStream.Position = origPos;
             points = new JEnvelopeVector[count];
@@ -401,7 +547,7 @@ namespace ibnktool
             return b;
         }
         
-        public void WritetoStream(BeBinaryWriter wr)
+        public void WriteToStream(BeBinaryWriter wr)
         {
             wr.Write(Sens);
             wr.Write(Target);
@@ -467,14 +613,12 @@ namespace ibnktool
     public class JInstrumentv2
     {
         public bool Percussion = false;
-
-  
+        [JsonIgnore]
+        public int mBaseAddress;  
     }
-    public class JStandardInstrumentv2 
+    public class JStandardInstrumentv2  : JInstrumentv2
     {
         private const int Inst = 0x496E7374; // Instrument
-        [JsonIgnore]
-        public int mBaseAddress = 0;
 
         public int[] OscillatorIndices;
         public int[] EffectIndices;
@@ -574,12 +718,10 @@ namespace ibnktool
 
 
 
-    public class JPercussionInstrumentv2 
+    public class JPercussionInstrumentv2 : JInstrumentv2
     {
         private const int Perc = 0x50657263; // Percussion 
-        [JsonIgnore]
-        public int mBaseAddress = 0;
-
+ 
         public int[] OscillatorIndices;
         public int[] EffectIndices;
         public JInstrumentPercussionMapv2[] Keys;

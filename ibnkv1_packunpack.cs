@@ -44,7 +44,8 @@ namespace ibnktool
 
 
 
-    public class IBNKPacker {
+    public class IBNKPacker
+    {
 
         public void packV1(IBNKProjectV1 prj, string baseFolder, BeBinaryWriter output)
         {
@@ -53,13 +54,13 @@ namespace ibnktool
             newIBNK.instruments = new JInstrument[0xF0];
 
             var x = 0;
-            foreach (KeyValuePair<int,string> inc in prj.includes)
+            foreach (KeyValuePair<int, string> inc in prj.includes)
             {
                 x++;
                 util.consoleProgress("Loading instruments...\t\t\t", x, prj.includes.Count, true);
                 var pjC = File.ReadAllText($"{baseFolder}/{inc.Value}");
                 var Ins = JsonConvert.DeserializeObject<JToken>(pjC);
-                if ((bool)Ins["Percussion"]==true)
+                if ((bool)Ins["Percussion"] == true)
                     newIBNK.instruments[inc.Key] = JsonConvert.DeserializeObject<JPercussion>(pjC);
                 else
                     newIBNK.instruments[inc.Key] = JsonConvert.DeserializeObject<JStandardInstrumentv1>(pjC);
@@ -67,7 +68,7 @@ namespace ibnktool
             Console.WriteLine();
 
             newIBNK.WriteToStream(output);
-       
+
 
 
             var envelopeHashes = reduceEnvelopes(newIBNK);
@@ -79,7 +80,7 @@ namespace ibnktool
             }
             reduceEnvelopeReferences(newIBNK, envelopeHashes);
 
-          
+
             var oscHashes = reduceOscillator(newIBNK);
             foreach (KeyValuePair<uint, JInstrumentOscillatorv1> entity in oscHashes)
             {
@@ -110,13 +111,14 @@ namespace ibnktool
             for (int i = 0; i < newIBNK.instruments.Length; i++)
             {
                 if (newIBNK.instruments[i] != null)
-                {               
+                {
                     if (newIBNK.instruments[i].Percussion)
                     {
                         var wb = (JPercussion)(newIBNK.instruments[i]);
                         if (wb == null)
                             continue;
-                        for (int xx = 0; xx < wb.Sounds.Length; xx++) {
+                        for (int xx = 0; xx < wb.Sounds.Length; xx++)
+                        {
                             if (wb.Sounds[xx] == null)
                                 continue;
                             util.padTo(output, 32);
@@ -142,8 +144,8 @@ namespace ibnktool
                     {
                         newIBNK.instruments[i].mBaseAddress = (int)output.BaseStream.Position;
                         ((JPercussion)newIBNK.instruments[i]).WriteToStream(output);
-                  
-                    }                    
+
+                    }
                 }
             }
 
@@ -279,7 +281,7 @@ namespace ibnktool
                     var realIns = (JStandardInstrumentv1)inst;
                     if (realIns.oscillatorA != null)
                     {
-                        realIns.oscillatorA.Attack = hashtable[realIns.oscillatorA.Attack.mHash] ;
+                        realIns.oscillatorA.Attack = hashtable[realIns.oscillatorA.Attack.mHash];
                         realIns.oscillatorA.Release = hashtable[realIns.oscillatorA.Release.mHash];
                     }
                     if (realIns.oscillatorB != null)
@@ -332,14 +334,14 @@ namespace ibnktool
         public Dictionary<uint, JInstrumentEnvelopev1> reduceEnvelopes(JInstrumentBankv1 bank)
         {
             Dictionary<uint, JInstrumentEnvelopev1> envelopeHashes = new Dictionary<uint, JInstrumentEnvelopev1>();
-            for (int i=0; i < bank.instruments.Length; i++)
+            for (int i = 0; i < bank.instruments.Length; i++)
             {
                 util.consoleProgress("Reducing envelopes...\t\t\t", i + 1, bank.instruments.Length, true);
                 var inst = bank.instruments[i];
-                if (inst!=null && inst.Percussion==false)
+                if (inst != null && inst.Percussion == false)
                 {
                     var realIns = (JStandardInstrumentv1)inst;
-                    if (realIns.oscillatorA!=null)
+                    if (realIns.oscillatorA != null)
                     {
                         var atkHsh = getEnvelopeHash(realIns.oscillatorA.Attack);
                         var relHsh = getEnvelopeHash(realIns.oscillatorA.Release);
@@ -347,7 +349,7 @@ namespace ibnktool
                         realIns.oscillatorA.Release.mHash = relHsh;
                         envelopeHashes[atkHsh] = realIns.oscillatorA.Attack;
                         envelopeHashes[relHsh] = realIns.oscillatorA.Release;
-                        
+
                     }
                     if (realIns.oscillatorB != null)
                     {
@@ -360,12 +362,12 @@ namespace ibnktool
                     }
                 }
             }
-            foreach (KeyValuePair<uint,JInstrumentEnvelopev1> entity in envelopeHashes)
+            foreach (KeyValuePair<uint, JInstrumentEnvelopev1> entity in envelopeHashes)
                 entity.Value.mHash = entity.Key;
 
             Console.WriteLine();
             return envelopeHashes;
- 
+
         }
 
         private uint getOscillatorHash(JInstrumentOscillatorv1 env)
