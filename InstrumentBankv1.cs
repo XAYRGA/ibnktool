@@ -382,13 +382,13 @@ namespace ibnktool
             wr.Write(new byte[0x84]);
             for (int i = 0; i < 128; i++)
                 wr.Write(Sounds[i] != null ? Sounds[i].mBaseAddress : 0);
-            wr.Write(new byte[0x70]);
+            //wr.Write(new byte[0x70]);
             for (int i = 0; i < 128; i++)
                 wr.Write((byte)(Sounds[i] != null ? Sounds[i].uflag1 : 0));
-            wr.Write(new byte[0x1C]);
+            //wr.Write(new byte[0x1C]);
             for (int i = 0; i < 128; i++)
                 wr.Write((short)(Sounds[i] != null ? Sounds[i].uflag2 : 0));
-            wr.Write(new byte[0x50]);
+            //wr.Write(new byte[0x50]);
         }
     }
 
