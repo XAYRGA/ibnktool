@@ -26,7 +26,29 @@ namespace ibnktool
             Console.WriteLine("dump email: bugs@xayr.ga");
             Console.ForegroundColor = ConsoleColor.Gray;
 #endif
+            
 
+            /*
+            var bb = File.OpenRead("53.bnk");
+            var bw = new BeBinaryReader(bb);
+            Console.WriteLine("Reading 53.bnk");
+            Console.WriteLine("InstrumentBankV2 --> CreateFromStream()");
+            var w = InstrumentBankv2.CreateFromStream(bw);
+            Console.WriteLine($"Oscillators \t{w.Oscillators.Length}");
+            Console.WriteLine($"Sensors \t{w.SenseEffects.Length}");
+            Console.WriteLine($"RandEffs \t{w.RandEffects.Length}");
+            Console.WriteLine($"Instruments \t{w.Instruments.Length}");
+            Console.WriteLine($"PercRegions \t{w.PercussionMaps.Length}");
+            Console.WriteLine($"Percussions \t{w.Percussions.Length}");
+            Console.WriteLine($"List Size \t{w.List.Length}");
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Read successful.");
+            Console.ForegroundColor = ConsoleColor.Gray;
+
+            File.WriteAllText("test_ibnk.json", JsonConvert.SerializeObject(w, Formatting.Indented));
+            */
+
+        
             cmdarg.cmdargs = args;
 
             var operation = cmdarg.assertArg(0, "Operation");
@@ -52,7 +74,28 @@ namespace ibnktool
 
                     var unp = new IBNKUnpacker();
                 unp.unpackV1(output, bank);              
-            } else if ( operation=="pack")
+            }
+            else if (operation == "unpackv2")
+            {
+                var file = cmdarg.assertArg(2, "IBNK File");
+                var output = cmdarg.assertArg(3, "Output Folder");
+                cmdarg.assert(!File.Exists(file), $"{file} not found.");
+                var fh = File.OpenRead(file);
+                var mr = new BeBinaryReader(fh);
+                InstrumentBankv2 bank = null;
+                try { bank = InstrumentBankv2.CreateFromStream(mr); }
+                catch (Exception E)
+                {
+#if DEBUG
+                    Console.WriteLine(E.ToString());
+#endif
+                    cmdarg.assert($"Cannot deserialize IBNK\n\n{E.Message}");
+                }
+
+                var unp = new IBNKUnpackerv2();
+                unp.unpackV2(output, bank);
+            }
+            else if ( operation=="pack")
             {
 
                 var file = cmdarg.assertArg(2, "Project Folder");
