@@ -202,7 +202,7 @@ namespace ibnktool
         {
             rd.BaseStream.Position = percTableOffset;
             if (rd.ReadInt32() != PERC)
-                throw new Exception("Expected PMAP");
+                throw new Exception("Expected PERC");
 
             var size = rd.ReadInt32();
             var count = rd.ReadInt32();
@@ -683,7 +683,7 @@ namespace ibnktool
         public float Pitch;
         public int unknown;
         public int[] OscillatorRefs;
-        public JInstrumentKeyRegionv2[] Velocities;
+        public JInstrumentVelocityRegionv2[] Velocities;
        
         private void loadFromStream(BeBinaryReader reader)
         {
@@ -696,8 +696,9 @@ namespace ibnktool
             var oscCount = reader.ReadInt32();
             OscillatorRefs = new int[oscCount];
             var velRegCount = reader.ReadInt32();
-            for (int i=0; i < velRegCount; i++)
-                Velocities[i] = JInstrumentKeyRegionv2.CreateFromStream(reader);
+            Velocities = new JInstrumentVelocityRegionv2[velRegCount];
+            for (int i = 0; i < velRegCount; i++)
+                Velocities[i] = JInstrumentVelocityRegionv2.CreateFromStream(reader);
         }
         public static JInstrumentPercussionMapv2 CreateFromStream(BeBinaryReader reader)
         {
@@ -735,13 +736,16 @@ namespace ibnktool
                 throw new Exception("Expected 'Perc'");
             var count = reader.ReadInt32();
             var ptrs = util.readInt32Array(reader, count);
+            var anchor = reader.BaseStream.Position;
+            Keys = new JInstrumentPercussionMapv2[count];
             for (int i=0; i < ptrs.Length; i++)
             {
-                if (ptrs[i] < 0)
+                if (ptrs[i] <= 0)
                     continue;
                 reader.BaseStream.Position = ptrs[i];
                 Keys[i] = JInstrumentPercussionMapv2.CreateFromStream(reader);        
             }
+            reader.BaseStream.Position = anchor;
 
         }
         public static JPercussionInstrumentv2 CreateFromStream(BeBinaryReader reader)
